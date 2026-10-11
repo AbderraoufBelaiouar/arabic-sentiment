@@ -2,9 +2,9 @@
 
 from arabic_sentiment.config import (
     LABEL_NAMES,
-    NUM_LABELS,
     LEARNING_RATE,
     NUM_EPOCHS,
+    NUM_LABELS,
     settings,
 )
 

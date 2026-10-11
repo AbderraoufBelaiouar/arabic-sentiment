@@ -22,6 +22,8 @@ dependencies = [
     "transformers>=5.18.0",
     "uvicorn>=0.54.0",
     "mlflow>=2.10.0",
+    "locust>=2.24.0",
+    "bentoml>=1.2.0",
 ]
 
 [project.scripts]
@@ -48,6 +50,15 @@ dev = [
 
 [tool.pytest.ini_options]
 addopts = "--cov=src/arabic_sentiment --cov-fail-under=70"
+
+[tool.coverage.run]
+omit = [
+    "src/arabic_sentiment/train.py",
+    "src/arabic_sentiment/mock_mlflow.py",
+    "src/arabic_sentiment/export.py",
+    "src/arabic_sentiment/batch_score.py",
+    "src/arabic_sentiment/serving/*",
+]
 
 [tool.ruff]
 line-length = 100

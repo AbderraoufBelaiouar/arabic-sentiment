@@ -17,14 +17,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 
-from arabic_sentiment.config import settings
-from arabic_sentiment.model import SentimentClassifier
 from arabic_sentiment.api.schemas import (
     HealthResponse,
     MetadataResponse,
     PredictionRequest,
     PredictionResponse,
 )
+from arabic_sentiment.config import settings
+from arabic_sentiment.model import SentimentClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +100,7 @@ async def predict(request: PredictionRequest):
         result = app.state.classifier.predict_one(request.text)
     except Exception as e:
         logger.error(f"Prediction failed: {e}", extra={"correlation_id": correlation_id})
-        raise HTTPException(status_code=500, detail="Prediction failed")
+        raise HTTPException(status_code=500, detail="Prediction failed") from e
 
     latency_ms = (time.perf_counter() - start) * 1000
 

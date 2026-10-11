@@ -12,7 +12,6 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings
 
-
 # ──────────────────────────────────────────────
 # Derived paths (used by train.py, not by Settings)
 # ──────────────────────────────────────────────

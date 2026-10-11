@@ -9,12 +9,12 @@ Usage:
 """
 
 from __future__ import annotations
-import mlflow
 
 import json
 import os
 
-from transformers import TrainingArguments, EarlyStoppingCallback
+import mlflow
+from transformers import EarlyStoppingCallback, TrainingArguments
 
 from arabic_sentiment.config import (
     EARLY_STOPPING_PATIENCE,

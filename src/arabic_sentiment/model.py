@@ -17,16 +17,16 @@ from typing import Any
 
 import numpy as np
 import torch
+from arabert.preprocess import ArabertPreprocessor
+from sklearn.utils.class_weight import compute_class_weight
 from torch import nn
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
     Trainer,
 )
-from arabert.preprocess import ArabertPreprocessor
-from sklearn.utils.class_weight import compute_class_weight
 
-from arabic_sentiment.config import settings, LABEL_NAMES, NUM_LABELS
+from arabic_sentiment.config import LABEL_NAMES, NUM_LABELS, settings
 
 logger = logging.getLogger(__name__)
 
@@ -68,25 +68,30 @@ class SentimentClassifier:
         result = classifier.predict_one("المنتج رائع")
     """
 
-    def __init__(self) -> None:
+    def __init__(self, model_path: str | None = None) -> None:
+        self.model_path = model_path
         self.session = None
         self.tokenizer = None
         self.preprocessor = None
         self.device = "cpu"
         self._loaded = False
+        if model_path is not None:
+            self.load(model_path=model_path)
 
     @timed
-    def load(self) -> None:
+    def load(self, model_path: str | None = None) -> None:
         """Load the model from disk into memory (called once at startup)."""
-        import onnxruntime as ort
         import os
+
+        import onnxruntime as ort
         
-        logger.info(f"Loading ONNX model from {settings.model_path}...")
+        path = model_path or self.model_path or settings.model_path
+        logger.info(f"Loading ONNX model from {path}...")
 
         self.preprocessor = ArabertPreprocessor(settings.model_name)
-        self.tokenizer = AutoTokenizer.from_pretrained(settings.model_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(path)
         
-        onnx_model_path = os.path.join(settings.model_path, "model.onnx")
+        onnx_model_path = os.path.join(path, "model.onnx")
         self.session = ort.InferenceSession(onnx_model_path, providers=["CPUExecutionProvider"])
 
         self._loaded = True
@@ -134,42 +139,10 @@ class SentimentClassifier:
 
     @timed
     def predict_batch(self, texts: list[str]) -> list[dict[str, Any]]:
-        """Predict sentiment for multiple texts at once."""
+        """Predict sentiment for multiple texts."""
         if not self._loaded:
             raise RuntimeError("Model not loaded. Call .load() first.")
-
-        cleaned = [self.preprocessor.preprocess(t) for t in texts]
-
-        inputs = self.tokenizer(
-            cleaned,
-            return_tensors="np",
-            truncation=True,
-            max_length=settings.max_seq_length,
-            padding=True,
-        )
-        
-        ort_inputs = {
-            "input_ids": inputs["input_ids"],
-            "attention_mask": inputs["attention_mask"]
-        }
-
-        logits = self.session.run(None, ort_inputs)[0]
-        
-        exp_logits = np.exp(logits - np.max(logits, axis=-1, keepdims=True))
-        probabilities = exp_logits / np.sum(exp_logits, axis=-1, keepdims=True)
-        
-        confidences = np.max(probabilities, axis=-1)
-        predicted_classes = np.argmax(probabilities, axis=-1)
-
-        results = []
-        for i in range(len(texts)):
-            results.append(
-                {
-                    "label": LABEL_MAP[int(predicted_classes[i])],
-                    "confidence": round(float(confidences[i]), 4),
-                }
-            )
-        return results
+        return [self.predict_one(t) for t in texts]
 
 
 # ──────────────────────────────────────────────
