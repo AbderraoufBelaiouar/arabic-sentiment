@@ -8,8 +8,8 @@ for ALL tests rather than per-test.
 import pytest
 from fastapi.testclient import TestClient
 
-from arabic_sentiment.model import SentimentClassifier
 from arabic_sentiment.api.main import app
+from arabic_sentiment.model import SentimentClassifier
 
 
 @pytest.fixture(scope="session")

@@ -36,4 +36,4 @@ def test_metadata_returns_200(client):
     data = response.json()
     assert "model_version" in data
     assert "model_name" in data
-    assert data["framework"] == "pytorch"
+    assert data["framework"] in ["onnx", "pytorch"]

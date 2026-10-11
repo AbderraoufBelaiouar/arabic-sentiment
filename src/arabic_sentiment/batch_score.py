@@ -7,17 +7,16 @@ Rubric requirements fulfilled:
 - Triggers drift analysis and saves output artifacts
 """
 
-import os
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Dict, Any, Tuple
+
 import numpy as np
 import pandas as pd
 
-from arabic_sentiment.config import PROJECT_ROOT, DATA_DIR, REPORTS_DIR
-from arabic_sentiment.model import SentimentClassifier
+from arabic_sentiment.config import PROJECT_ROOT
 from arabic_sentiment.data import load_arabic_sentiment_dataset
+from arabic_sentiment.model import SentimentClassifier
 
 SCORING_OUTPUT_DIR = PROJECT_ROOT / "data" / "scoring" / "output"
 SCORING_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -61,7 +60,7 @@ def calculate_psi(expected: np.ndarray, actual: np.ndarray, num_buckets: int = 1
     return float(round(psi_val, 4))
 
 
-def run_batch_scoring(batch_size: int = 64) -> Tuple[Path, Dict[str, float]]:
+def run_batch_scoring(batch_size: int = 64) -> tuple[Path, dict[str, float]]:
     """
     Run batch scoring on ≥ 1,000 samples and persist results to disk.
     """
@@ -93,7 +92,7 @@ def run_batch_scoring(batch_size: int = 64) -> Tuple[Path, Dict[str, float]]:
                 "text_length": len(text),
                 "predicted_label": res["label"],
                 "confidence_score": res["confidence"],
-                "scored_at": datetime.utcnow().isoformat(),
+                "scored_at": datetime.now(UTC).isoformat(),
             })
 
     elapsed = time.time() - start_time
@@ -101,9 +100,9 @@ def run_batch_scoring(batch_size: int = 64) -> Tuple[Path, Dict[str, float]]:
 
     # 4. Save output dataset
     df = pd.DataFrame(records)
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     output_parquet = SCORING_OUTPUT_DIR / f"predictions_{timestamp}.parquet"
-    output_csv = SCORING_OUTPUT_DIR / f"predictions_latest.csv"
+    output_csv = SCORING_OUTPUT_DIR / "predictions_latest.csv"
     
     df.to_parquet(output_parquet, index=False)
     df.to_csv(output_csv, index=False)

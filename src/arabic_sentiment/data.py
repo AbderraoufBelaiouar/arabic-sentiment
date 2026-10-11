@@ -7,8 +7,8 @@ Responsible for:
 
 from __future__ import annotations
 
-from datasets import DatasetDict, load_from_disk
 from arabert.preprocess import ArabertPreprocessor
+from datasets import DatasetDict, load_from_disk
 from transformers import PreTrainedTokenizerBase
 
 from arabic_sentiment.config import (

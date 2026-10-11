@@ -1,7 +1,9 @@
-import bentoml
 import shutil
-from pathlib import Path
+
+import bentoml
+
 from arabic_sentiment.config import MODELS_DIR
+
 
 def save_to_bentoml():
     onnx_dir = MODELS_DIR / "arabert-twitter-onnx"

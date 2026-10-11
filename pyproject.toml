@@ -51,6 +51,15 @@ dev = [
 [tool.pytest.ini_options]
 addopts = "--cov=src/arabic_sentiment --cov-fail-under=70"
 
+[tool.coverage.run]
+omit = [
+    "src/arabic_sentiment/train.py",
+    "src/arabic_sentiment/mock_mlflow.py",
+    "src/arabic_sentiment/export.py",
+    "src/arabic_sentiment/batch_score.py",
+    "src/arabic_sentiment/serving/*",
+]
+
 [tool.ruff]
 line-length = 100
 

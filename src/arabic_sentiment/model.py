@@ -17,16 +17,16 @@ from typing import Any
 
 import numpy as np
 import torch
+from arabert.preprocess import ArabertPreprocessor
+from sklearn.utils.class_weight import compute_class_weight
 from torch import nn
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
     Trainer,
 )
-from arabert.preprocess import ArabertPreprocessor
-from sklearn.utils.class_weight import compute_class_weight
 
-from arabic_sentiment.config import settings, LABEL_NAMES, NUM_LABELS
+from arabic_sentiment.config import LABEL_NAMES, NUM_LABELS, settings
 
 logger = logging.getLogger(__name__)
 
@@ -81,8 +81,9 @@ class SentimentClassifier:
     @timed
     def load(self, model_path: str | None = None) -> None:
         """Load the model from disk into memory (called once at startup)."""
-        import onnxruntime as ort
         import os
+
+        import onnxruntime as ort
         
         path = model_path or self.model_path or settings.model_path
         logger.info(f"Loading ONNX model from {path}...")
