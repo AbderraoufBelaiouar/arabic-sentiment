@@ -24,6 +24,8 @@ dependencies = [
     "mlflow>=2.10.0",
     "locust>=2.24.0",
     "bentoml>=1.2.0",
+    "evidently>=0.7.23",
+    "prometheus-client>=0.26.0",
 ]
 
 [project.scripts]

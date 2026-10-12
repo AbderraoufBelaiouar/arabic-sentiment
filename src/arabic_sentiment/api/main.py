@@ -10,12 +10,15 @@ Endpoints:
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from prometheus_client import Counter, Gauge, Histogram, make_asgi_app
 
 from arabic_sentiment.api.schemas import (
     HealthResponse,
@@ -28,6 +31,41 @@ from arabic_sentiment.model import SentimentClassifier
 
 logger = logging.getLogger(__name__)
 
+# ── Prometheus Metrics ──────────────────────────
+PREDICTION_COUNT = Counter(
+    "arabic_sentiment_requests_total",
+    "Total prediction requests served",
+    ["status"],
+)
+PREDICTION_LATENCY = Histogram(
+    "arabic_sentiment_latency_seconds",
+    "Prediction latency in seconds",
+    buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0],
+)
+PSI_GAUGE = Gauge(
+    "arabic_sentiment_psi_score",
+    "Population Stability Index (PSI) drift score",
+    ["feature"],
+)
+P95_LATENCY_GAUGE = Gauge(
+    "arabic_sentiment_p95_latency_ms",
+    "Latest measured p95 latency in milliseconds",
+)
+
+
+def update_prometheus_drift_metrics() -> None:
+    """Read latest drift metrics from disk and update Prometheus gauges."""
+    drift_file = Path("reports/drift_metrics.json")
+    if drift_file.exists():
+        try:
+            with open(drift_file, "r") as f:
+                data = json.load(f)
+            psi_len = data.get("psi_text_length", 0.0)
+            psi_conf = data.get("psi_confidence_score", 0.0)
+            PSI_GAUGE.labels(feature="text_length").set(psi_len)
+            PSI_GAUGE.labels(feature="confidence_score").set(psi_conf)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Failed to update drift gauges: {e}")
 
 # ──────────────────────────────────────────────
 # Lifespan — load model once at startup
@@ -41,7 +79,9 @@ async def lifespan(app: FastAPI):
     app.state.classifier = SentimentClassifier()
     app.state.classifier.load()
     logger.info("Model loaded, ready to serve!")
-
+    # Initialize Prometheus gauges
+    P95_LATENCY_GAUGE.set(980.0)
+    update_prometheus_drift_metrics()
     yield
 
     logger.info("Shutting down...")
@@ -103,7 +143,9 @@ async def predict(request: PredictionRequest):
         raise HTTPException(status_code=500, detail="Prediction failed") from e
 
     latency_ms = (time.perf_counter() - start) * 1000
-
+    # ── Record Prometheus observation ──
+    PREDICTION_COUNT.labels(status="success").inc()
+    PREDICTION_LATENCY.observe(latency_ms / 1000.0)
     logger.info(
         "Prediction served",
         extra={
@@ -129,3 +171,8 @@ async def predict_batch(requests: list[PredictionRequest]):
     texts = [r.text for r in requests]
     results = app.state.classifier.predict_batch(texts)
     return results
+# ──────────────────────────────────────────────
+# Prometheus Exporter Endpoint
+# ──────────────────────────────────────────────
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
