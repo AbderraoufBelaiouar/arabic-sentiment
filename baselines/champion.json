@@ -1,0 +1,9 @@
+{
+  "f1_macro": 0.7146,
+  "accuracy": 0.7115,
+  "model_sha256": "527814bb1c2c130bf8852d98a5aa8f40e9e4bd93bd02badbeb107630f0d294b9",
+  "n_samples": 870,
+  "set_at": "2026-10-18T14:53:34Z",
+  "set_by_commit": "e9fd003",
+  "note": "First honest baseline: model selected on validation split, test evaluated once after training."
+}

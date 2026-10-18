@@ -1,28 +1,36 @@
 """
-Script to export the PyTorch model to ONNX format.
+Script to export the trained PyTorch model to ONNX format for serving.
 """
 
 from __future__ import annotations
 
 import argparse
 import logging
-import os
+from pathlib import Path
 
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-from arabic_sentiment.config import settings
+from arabic_sentiment.config import MODELS_DIR, settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def export_model_to_onnx(output_path: str | None = None) -> None:
-    if output_path is None:
-        output_path = os.path.join(settings.model_path, "model.onnx")
+DEFAULT_SOURCE_DIR = MODELS_DIR / "arabert-twitter-optimized"
 
-    logger.info(f"Loading PyTorch model from {settings.model_path}...")
-    model = AutoModelForSequenceClassification.from_pretrained(settings.model_path)
-    tokenizer = AutoTokenizer.from_pretrained(settings.model_path)
+
+def export_model_to_onnx(
+    source_dir: str | Path | None = None,
+    target_dir: str | Path | None = None,
+) -> None:
+    """Export the PyTorch checkpoint in source_dir to ONNX in target_dir."""
+    source = Path(source_dir) if source_dir else DEFAULT_SOURCE_DIR
+    target = Path(target_dir) if target_dir else Path(settings.model_path)
+    output_path = target / "model.onnx"
+
+    logger.info(f"Loading PyTorch model from {source}...")
+    model = AutoModelForSequenceClassification.from_pretrained(source)
+    tokenizer = AutoTokenizer.from_pretrained(source)
 
     # Put the model in evaluation mode
     model.eval()
@@ -37,11 +45,15 @@ def export_model_to_onnx(output_path: str | None = None) -> None:
         padding="max_length",
     )
 
+    target.mkdir(parents=True, exist_ok=True)
+    for stale in (output_path, Path(f"{output_path}.data")):
+        stale.unlink(missing_ok=True)
+
     logger.info(f"Exporting ONNX model to {output_path}...")
     torch.onnx.export(
         model,
         (inputs["input_ids"], inputs["attention_mask"]),
-        output_path,
+        str(output_path),
         input_names=["input_ids", "attention_mask"],
         output_names=["logits"],
         dynamic_axes={
@@ -52,16 +64,33 @@ def export_model_to_onnx(output_path: str | None = None) -> None:
         opset_version=14,
         do_constant_folding=True,
     )
+    tokenizer.save_pretrained(target)
     logger.info("Export successful!")
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Export Arabic Sentiment model to ONNX")
     parser.add_argument(
-        "--output", type=str, default=None, 
-        help="Output path for the ONNX model. Defaults to model_path/model.onnx in settings."
+        "--source",
+        type=str,
+        default=None,
+        help=(
+            "Directory containing the trained PyTorch model. "
+            "Defaults to models/arabert-twitter-optimized."
+        ),
+    )
+    parser.add_argument(
+        "--target",
+        type=str,
+        default=None,
+        help=(
+            "Directory to write the ONNX model and tokenizer to. "
+            "Defaults to settings.model_path (models/arabert-twitter-onnx)."
+        ),
     )
     args = parser.parse_args()
-    export_model_to_onnx(args.output)
+    export_model_to_onnx(args.source, args.target)
+
 
 if __name__ == "__main__":
     main()

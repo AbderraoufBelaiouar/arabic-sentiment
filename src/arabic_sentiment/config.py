@@ -40,7 +40,11 @@ WEIGHT_DECAY = 0.01
 WARMUP_STEPS = 100
 EARLY_STOPPING_PATIENCE = 2
 METRIC_FOR_BEST_MODEL = "f1_macro"
-
+# ──────────────────────────────────────────────
+# base line evals
+# ──────────────────────────────────────────────
+BASELINES_DIR = PROJECT_ROOT / "baselines"
+CHAMPION_PATH = BASELINES_DIR / "champion.json"
 
 class Settings(BaseSettings):
     """Application settings — all configurable values live here."""
