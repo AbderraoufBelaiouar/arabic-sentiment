@@ -1,0 +1,16 @@
+.git
+.dvc
+.dvcignore
+.github
+.venv
+.pytest_cache
+.ruff_cache
+.coverage
+data
+notebooks
+reports
+mlruns
+loadtest
+tests
+mlflow.db
+dummy_model.txt
