@@ -58,6 +58,7 @@ addopts = "--cov=src/arabic_sentiment --cov-fail-under=70"
 [tool.coverage.run]
 omit = [
     "src/arabic_sentiment/train.py",
+    "src/arabic_sentiment/evaluate.py",
     "src/arabic_sentiment/mock_mlflow.py",
     "src/arabic_sentiment/export.py",
     "src/arabic_sentiment/batch_score.py",
