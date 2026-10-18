@@ -37,3 +37,12 @@ def test_metadata_returns_200(client):
     assert "model_version" in data
     assert "model_name" in data
     assert data["framework"] in ["onnx", "pytorch"]
+
+
+def test_metrics_endpoint_returns_prometheus_metrics(client):
+    """Metrics endpoint should return 200 with Prometheus metrics."""
+    response = client.get("/metrics")
+    assert response.status_code == 200
+    content = response.text
+    assert "arabic_sentiment_psi_score" in content
+    assert "arabic_sentiment_p95_latency_ms" in content

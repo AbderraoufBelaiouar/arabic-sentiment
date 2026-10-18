@@ -17,6 +17,7 @@ import pandas as pd
 from arabic_sentiment.config import PROJECT_ROOT
 from arabic_sentiment.data import load_arabic_sentiment_dataset
 from arabic_sentiment.model import SentimentClassifier
+from arabic_sentiment.monitoring.drift import generate_drift_analysis
 
 SCORING_OUTPUT_DIR = PROJECT_ROOT / "data" / "scoring" / "output"
 SCORING_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -103,7 +104,9 @@ def run_batch_scoring(batch_size: int = 64) -> tuple[Path, dict[str, float]]:
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     output_parquet = SCORING_OUTPUT_DIR / f"predictions_{timestamp}.parquet"
     output_csv = SCORING_OUTPUT_DIR / "predictions_latest.csv"
-    
+    # Trigger automated drift check after batch scoring
+    generate_drift_analysis(df)
+
     df.to_parquet(output_parquet, index=False)
     df.to_csv(output_csv, index=False)
     print(f"💾 Scored output saved to: {output_parquet}")

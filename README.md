@@ -86,3 +86,40 @@ To safely release optimized models into production without risking service downt
    * Promote canary to `stable_backend`. Decommission the old container.
 5. **Rollback Policy:**
    * If the canary error rate exceeds $1\%$ or p95 latency exceeds $1500\text{ ms}$, immediately revert traffic to 100% stable by setting the canary weight to 0%.
+## Observability & Drift Monitoring
+
+To ensure reliability, low latency, and detect data distribution shifts in production, the service integrates **Evidently AI**, **Prometheus**, and **Grafana**.
+
+### 1. Automated Drift Detection & Evidently AI
+Every batch scoring run automatically triggers statistical drift analysis (`src/arabic_sentiment/monitoring/drift.py`) comparing incoming samples against training baselines:
+* **Interactive HTML Report:** Stored at [`reports/data_drift_report.html`](reports/data_drift_report.html) using Evidently AI's `DataDriftPreset`.
+* **Machine-Readable Metrics:** Exported to [`reports/drift_metrics.json`](reports/drift_metrics.json).
+
+### 2. Population Stability Index (PSI) Benchmarks
+PSI is computed for `text_length` and `confidence_score`:
+* 🟢 **PSI < 0.10:** Stable (No distribution shift).
+* 🟡 **0.10 ≤ PSI ≤ 0.25:** Moderate drift (Added to watchlist).
+* 🔴 **PSI > 0.25:** Critical drift (Triggers automated alerts and retraining).
+
+### 3. Prometheus Metrics (`/metrics`)
+The FastAPI serving app exposes the following Prometheus gauges and counters at `/metrics`:
+* `arabic_sentiment_psi_score{feature="text_length"}`: Population Stability Index for text length.
+* `arabic_sentiment_psi_score{feature="confidence_score"}`: Population Stability Index for prediction confidence.
+* `arabic_sentiment_p95_latency_ms`: Observed 95th percentile latency (ms).
+* `arabic_sentiment_requests_total{status="success|failure"}`: Total requests counter.
+* `arabic_sentiment_latency_seconds`: Prediction latency histogram.
+
+### 4. Grafana Observability Dashboard
+A production dashboard configuration is provided at [`docker/grafana/dashboard.json`](docker/grafana/dashboard.json) featuring:
+* **Panel 1 — Serving p95 Latency:** Monitors SLA compliance ($< 1000\text{ ms}$).
+* **Panel 2 — PSI Drift Monitor:** Visualizes stability across input features with green/yellow/red threshold zones.
+
+### 5. Alert Rule & Incident Runbook (`PSI > 0.25`)
+* **Alert Name:** `ArabicSentimentHighDataDrift`
+* **Condition:** `arabic_sentiment_psi_score > 0.25` for `5m`.
+* **Severity:** `Critical`
+* **Notification Channel:** PagerDuty / Slack `#mlops-alerts`.
+* **Incident Runbook:**
+  1. On-call engineer inspects [`reports/data_drift_report.html`](reports/data_drift_report.html) to identify drifted features.
+  2. If vocabulary or domain shift occurred, collect recent predictions from `data/scoring/output/`.
+  3. Trigger automated retraining pipeline with newly labeled production data.
