@@ -44,6 +44,7 @@ dev = [
     "dvc>=3.0.0",
     "httpx>=0.28.1",
     "mypy>=2.4.0",
+    "onnxscript>=0.7.2",
     "pre-commit>=4.6.2",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
@@ -57,6 +58,7 @@ addopts = "--cov=src/arabic_sentiment --cov-fail-under=70"
 [tool.coverage.run]
 omit = [
     "src/arabic_sentiment/train.py",
+    "src/arabic_sentiment/evaluate.py",
     "src/arabic_sentiment/mock_mlflow.py",
     "src/arabic_sentiment/export.py",
     "src/arabic_sentiment/batch_score.py",

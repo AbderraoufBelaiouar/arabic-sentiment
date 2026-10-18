@@ -34,8 +34,11 @@
         # Requirement 2: Test
         - name: Run Unit Tests
           run: uv run pytest tests/
-          
-        # Requirement 3: Quality Gate (from Step 1)
+
+        # Requirement 3: Quality Gate
+        - name: Evaluate model artifact
+          run: uv run python -m arabic_sentiment.evaluate
+        # Requirement 4: Quality Gate (from Step 1)
         - name: Verify Model Metrics Baseline
           run: uv run python .github/scripts/check_metrics.py
           

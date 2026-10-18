@@ -78,6 +78,7 @@ def main() -> None:
         warmup_steps=WARMUP_STEPS,
         eval_strategy="epoch",
         save_strategy="epoch",
+        save_total_limit=1,
         load_best_model_at_end=True,
         metric_for_best_model=METRIC_FOR_BEST_MODEL,
         report_to="none",
@@ -88,7 +89,7 @@ def main() -> None:
         model=model,
         args=training_args,
         train_dataset=tokenized["train"],
-        eval_dataset=tokenized["test"],
+        eval_dataset=tokenized["validation"],
         compute_metrics=compute_metrics,
         processing_class=tokenizer,
         callbacks=[EarlyStoppingCallback(early_stopping_patience=EARLY_STOPPING_PATIENCE)],
@@ -104,17 +105,20 @@ def main() -> None:
         })
     # ── 6. Train ────────────────────────────────────
         print("🏋️  Starting training …")
-        trainer.train()
+        trainer.train(resume_from_checkpoint=os.environ.get("RESUME_CHECKPOINT"))
 
     # ── 7. Evaluate ─────────────────────────────────
         print("📊  Evaluating …")
-        results = trainer.evaluate()
+        val_results = trainer.evaluate()
+        test_results = trainer.evaluate(eval_dataset=tokenized["test"])
         mlflow.log_metrics({
-        "accuracy": results["eval_accuracy"],
-        "f1_macro": results["eval_f1_macro"]
-         })
-        accuracy = results["eval_accuracy"]
-        f1_macro = results["eval_f1_macro"]
+            "val_accuracy": val_results["eval_accuracy"],
+            "val_f1_macro": val_results["eval_f1_macro"],
+            "test_accuracy": test_results["eval_accuracy"],
+            "test_f1_macro": test_results["eval_f1_macro"],
+        })
+        accuracy = test_results["eval_accuracy"]
+        f1_macro = test_results["eval_f1_macro"]
         print(f"    Accuracy : {accuracy:.4f}")
         print(f"    F1 Macro : {f1_macro:.4f}")
 

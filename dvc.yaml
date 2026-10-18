@@ -1,10 +1,14 @@
 stages:
   train:
-    cmd: uv run arabic-sentiment
+    cmd: uv run arabic-sentiment && uv run arabic-sentiment-export
     deps:
       - data/raw
-      - src/arabic_sentiment/train.py
+      - src/arabic_sentiment/config.py
+      - src/arabic_sentiment/data.py
+      - src/arabic_sentiment/export.py
+      - src/arabic_sentiment/metrics.py
       - src/arabic_sentiment/model.py
+      - src/arabic_sentiment/train.py
     outs:
       - models/arabert-twitter-onnx
       - reports/metrics.json
