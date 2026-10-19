@@ -23,11 +23,10 @@ except ImportError:
     from evidently.legacy.report import Report
 
 from arabic_sentiment.config import PROJECT_ROOT, REPORTS_DIR
-from arabic_sentiment.data import load_arabic_sentiment_dataset
 
 DRIFT_REPORT_HTML = REPORTS_DIR / "data_drift_report.html"
 DRIFT_METRICS_JSON = REPORTS_DIR / "drift_metrics.json"
-
+REFERENCE_CSV = REPORTS_DIR / "drift_reference.csv"
 
 def calculate_psi(expected: np.ndarray, actual: np.ndarray, num_buckets: int = 10) -> float:
     """
@@ -71,18 +70,12 @@ def generate_drift_analysis(current_df: pd.DataFrame) -> dict[str, Any]:
     print("🔍 [Monitoring] Running data drift analysis...")
 
     # 1. Build Reference DataFrame from training set
-    ds = load_arabic_sentiment_dataset()
-    train_texts = ds["train"]["text"]
-    
-    ref_lengths = [len(t) for t in train_texts]
-    # Simulated baseline confidence for reference distribution
-    np.random.seed(42)
-    ref_confidence = np.random.uniform(0.70, 0.99, size=len(train_texts))
-
-    ref_df = pd.DataFrame({
-        "text_length": ref_lengths,
-        "confidence_score": ref_confidence,
-    })
+    if not REFERENCE_CSV.exists():
+        raise FileNotFoundError(
+            f"No drift reference found at {REFERENCE_CSV}. Generate it with:\n"
+            "  uv run python -m arabic_sentiment.monitoring.make_reference"
+        )
+    ref_df = pd.read_csv(REFERENCE_CSV)[["text_length", "confidence_score"]]
 
     curr_features = current_df[["text_length", "confidence_score"]].copy()
 
@@ -107,6 +100,7 @@ def generate_drift_analysis(current_df: pd.DataFrame) -> dict[str, Any]:
         "status": drift_status,
         "total_current_samples": len(current_df),
         "mean_current_confidence": float(round(curr_features["confidence_score"].mean(), 4)),
+        "reference_samples": len(ref_df),
     }
 
     with open(DRIFT_METRICS_JSON, "w") as f:

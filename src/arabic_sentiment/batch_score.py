@@ -11,7 +11,6 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 from arabic_sentiment.config import PROJECT_ROOT
@@ -22,43 +21,6 @@ from arabic_sentiment.monitoring.drift import generate_drift_analysis
 SCORING_OUTPUT_DIR = PROJECT_ROOT / "data" / "scoring" / "output"
 SCORING_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-
-def calculate_psi(expected: np.ndarray, actual: np.ndarray, num_buckets: int = 10) -> float:
-    """
-    Calculate Population Stability Index (PSI) between two numeric distributions.
-    
-    Rule of thumb:
-    - PSI < 0.1: No significant change / drift.
-    - 0.1 <= PSI <= 0.25: Moderate drift.
-    - PSI > 0.25: Significant drift (triggers alerts / retraining).
-    """
-    if len(expected) == 0 or len(actual) == 0:
-        return 0.0
-
-    # Determine quantile bins based on expected baseline distribution
-    percentiles = np.linspace(0, 100, num_buckets + 1)
-    bins = np.percentile(expected, percentiles)
-    bins[0] = -np.inf
-    bins[-1] = np.inf
-    # Ensure unique monotonic bin edges
-    bins = np.unique(bins)
-    if len(bins) < 2:
-        return 0.0
-
-    expected_counts, _ = np.histogram(expected, bins=bins)
-    actual_counts, _ = np.histogram(actual, bins=bins)
-
-    # Convert to proportions with epsilon smoothing to avoid div-by-zero
-    eps = 1e-4
-    expected_pct = (expected_counts / len(expected)) + eps
-    actual_pct = (actual_counts / len(actual)) + eps
-
-    # Normalize after adding epsilon
-    expected_pct /= np.sum(expected_pct)
-    actual_pct /= np.sum(actual_pct)
-
-    psi_val = np.sum((actual_pct - expected_pct) * np.log(actual_pct / expected_pct))
-    return float(round(psi_val, 4))
 
 
 def run_batch_scoring(batch_size: int = 64) -> tuple[Path, dict[str, float]]:
@@ -105,40 +67,12 @@ def run_batch_scoring(batch_size: int = 64) -> tuple[Path, dict[str, float]]:
     output_parquet = SCORING_OUTPUT_DIR / f"predictions_{timestamp}.parquet"
     output_csv = SCORING_OUTPUT_DIR / "predictions_latest.csv"
     # Trigger automated drift check after batch scoring
-    generate_drift_analysis(df)
+    psi_metrics = generate_drift_analysis(df)
 
     df.to_parquet(output_parquet, index=False)
     df.to_csv(output_csv, index=False)
     print(f"💾 Scored output saved to: {output_parquet}")
     print(f"💾 Latest CSV view saved to: {output_csv}")
-
-    # 5. Compute PSI against baseline training set distribution
-    train_texts = ds["train"]["text"]
-    baseline_lengths = np.array([len(t) for t in train_texts], dtype=float)
-    current_lengths = df["text_length"].to_numpy(dtype=float)
-
-    # Reference confidence baseline (simulated uniform or validation sample)
-    baseline_confidence = np.random.uniform(0.70, 0.99, size=len(train_texts))
-    current_confidence = df["confidence_score"].to_numpy(dtype=float)
-
-    psi_length = calculate_psi(baseline_lengths, current_lengths)
-    psi_confidence = calculate_psi(baseline_confidence, current_confidence)
-
-    psi_metrics = {
-        "psi_text_length": psi_length,
-        "psi_confidence_score": psi_confidence,
-        "total_samples": len(records),
-        "mean_confidence": float(round(df["confidence_score"].mean(), 4)),
-    }
-
-    print(f"📊 [Drift Metrics] PSI text_length: {psi_length} (Threshold: 0.25)")
-    print(f"📊 [Drift Metrics] PSI confidence_score: {psi_confidence} (Threshold: 0.25)")
-
-    if psi_length > 0.25 or psi_confidence > 0.25:
-        print("⚠️ [ALERT] Population Stability Index exceeds 0.25! Triggering retraining alert.")
-    else:
-        print("✅ [OK] Distributions stable. PSI <= 0.25.")
-
     return output_parquet, psi_metrics
 
 

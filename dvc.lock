@@ -42,3 +42,45 @@ stages:
       hash: md5
       md5: 2dc2038756c64506fb17081b9d4c15d9
       size: 145
+  drift-reference:
+    cmd: uv run python -m arabic_sentiment.monitoring.make_reference
+    deps:
+    - path: data/raw
+      hash: md5
+      md5: ff600d47a3b4e0a311cf266cdcfff190.dir
+      size: 3431365
+      nfiles: 13
+    - path: models/arabert-twitter-onnx
+      hash: md5
+      md5: fc4ebabc0b434a43ccfd84c5b9361a9b.dir
+      size: 544229923
+      nfiles: 4
+    - path: src/arabic_sentiment/data.py
+      hash: md5
+      md5: 3678c149e142212f4982c42c3502af7c
+      size: 1916
+    - path: src/arabic_sentiment/evaluate.py
+      hash: md5
+      md5: 5c2a8f73ba0a17c54768bc8592e09f18
+      size: 2234
+    - path: src/arabic_sentiment/model.py
+      hash: md5
+      md5: dbaff5499b847b3730306b3fcf6e7220
+      size: 6656
+    - path: src/arabic_sentiment/monitoring/drift.py
+      hash: md5
+      md5: 04143fe1f80726d8273ecad78cce1b2c
+      size: 4743
+    - path: src/arabic_sentiment/monitoring/make_reference.py
+      hash: md5
+      md5: 197c0f5e0be542607e8ff1c5b2260853
+      size: 2142
+    outs:
+    - path: reports/drift_reference.csv
+      hash: md5
+      md5: 667c92e857a7304fbe19da1b20f70c73
+      size: 3371
+    - path: reports/drift_reference_meta.json
+      hash: md5
+      md5: 33a004a2f2c59dcb046cf5074a9e4c3d
+      size: 274
