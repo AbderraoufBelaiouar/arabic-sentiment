@@ -12,3 +12,16 @@ stages:
     outs:
       - models/arabert-twitter-onnx
       - reports/metrics.json
+  drift-reference:
+    cmd: uv run python -m arabic_sentiment.monitoring.make_reference
+    deps:
+      - data/raw
+      - models/arabert-twitter-onnx
+      - src/arabic_sentiment/data.py
+      - src/arabic_sentiment/evaluate.py
+      - src/arabic_sentiment/model.py
+      - src/arabic_sentiment/monitoring/drift.py
+      - src/arabic_sentiment/monitoring/make_reference.py
+    outs:
+      - reports/drift_reference.csv
+      - reports/drift_reference_meta.json
