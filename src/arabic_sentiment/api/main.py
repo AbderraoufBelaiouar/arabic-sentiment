@@ -14,9 +14,11 @@ import json
 import logging
 import time
 import uuid
+from collections import deque
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import numpy as np
 from fastapi import FastAPI, HTTPException
 from prometheus_client import Counter, Gauge, Histogram, make_asgi_app
 
@@ -51,7 +53,13 @@ P95_LATENCY_GAUGE = Gauge(
     "arabic_sentiment_p95_latency_ms",
     "Latest measured p95 latency in milliseconds",
 )
+LATENCY_SAMPLES_MS: deque[float] = deque(maxlen=1000)
 
+
+def _record_latency(latency_ms: float) -> None:
+    """Update the p95 gauge from real observations."""
+    LATENCY_SAMPLES_MS.append(latency_ms)
+    P95_LATENCY_GAUGE.set(round(float(np.percentile(list(LATENCY_SAMPLES_MS), 95)), 2))
 
 def update_prometheus_drift_metrics() -> None:
     """Read latest drift metrics from disk and update Prometheus gauges."""
@@ -80,7 +88,6 @@ async def lifespan(app: FastAPI):
     app.state.classifier.load()
     logger.info("Model loaded, ready to serve!")
     # Initialize Prometheus gauges
-    P95_LATENCY_GAUGE.set(980.0)
     update_prometheus_drift_metrics()
     yield
 
@@ -130,7 +137,7 @@ async def metadata():
 
 
 @app.post("/predict", response_model=PredictionResponse)
-async def predict(request: PredictionRequest):
+def predict(request: PredictionRequest):
     """Predict sentiment for Arabic text."""
     correlation_id = str(uuid.uuid4())
 
@@ -142,10 +149,12 @@ async def predict(request: PredictionRequest):
         logger.error(f"Prediction failed: {e}", extra={"correlation_id": correlation_id})
         raise HTTPException(status_code=500, detail="Prediction failed") from e
 
+
     latency_ms = (time.perf_counter() - start) * 1000
     # ── Record Prometheus observation ──
     PREDICTION_COUNT.labels(status="success").inc()
     PREDICTION_LATENCY.observe(latency_ms / 1000.0)
+    _record_latency(latency_ms)    
     logger.info(
         "Prediction served",
         extra={
@@ -166,7 +175,7 @@ async def predict(request: PredictionRequest):
 
 
 @app.post("/predict/batch")
-async def predict_batch(requests: list[PredictionRequest]):
+def predict_batch(requests: list[PredictionRequest]):
     """Predict sentiment for multiple texts at once."""
     texts = [r.text for r in requests]
     results = app.state.classifier.predict_batch(texts)

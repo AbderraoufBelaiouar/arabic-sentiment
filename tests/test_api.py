@@ -1,6 +1,47 @@
 """Test the API endpoints."""
+import re
 
 
+def test_predict_batch_returns_results(client):
+    """Batch endpoint should return one prediction per input text."""
+    response = client.post(
+        "/predict/batch",
+        json=[{"text": "المنتج رائع"}, {"text": "جودة رديئة"}],
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+    for item in data:
+        assert item["label"] in ["positive", "negative", "neutral"]
+
+
+def test_predict_updates_p95_gauge_with_real_value(client):
+    """p95 gauge must reflect observed latencies, not a hardcoded constant."""
+    client.post("/predict", json={"text": "المنتج رائع"})
+    content = client.get("/metrics").text
+    match = re.search(r"^arabic_sentiment_p95_latency_ms ([0-9.eE+-]+)$", content, re.MULTILINE)
+    assert match is not None
+    value = float(match.group(1))
+    assert value > 0
+    assert value != 980.0
+
+
+def test_predict_failure_returns_500(client, monkeypatch):
+    """Internal prediction errors must surface as 500, not crash the API."""
+
+    def boom(_text):
+        raise RuntimeError("simulated failure")
+
+    monkeypatch.setattr(client.app.state.classifier, "predict_one", boom)
+    response = client.post("/predict", json={"text": "المنتج رائع"})
+    assert response.status_code == 500
+
+
+def test_health_returns_503_when_model_not_loaded(client, monkeypatch):
+    """Health must report 503 if the model is not loaded."""
+    monkeypatch.setattr(client.app.state.classifier, "_loaded", False)
+    response = client.get("/health")
+    assert response.status_code == 503
 def test_health_returns_200(client):
     """Health endpoint should return 200 when model is loaded."""
     response = client.get("/health")
